@@ -50,11 +50,12 @@ data "terraform_remote_state" "vpc" {
   }
 }
 
-output "peering_details" {
-  value = { 
-    for key, instance in data.terraform_remote_state.vpc : key => instance.outputs.peering_ids.creator
-  }
-}
+## Keeping below examples for future debugging
+# output "peering_details" {
+#   value = { 
+#     for key, instance in data.terraform_remote_state.vpc : key => instance.outputs.peering_ids.creator
+#   }
+# }
 
 # output "terraform_remote_state" {
 #   # value = lookup(lookup(data.terraform_remote_state.vpc, "dc02", {}).outputs.vpc_info, "main", {}).primary_cidr
