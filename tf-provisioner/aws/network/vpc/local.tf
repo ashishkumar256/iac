@@ -81,13 +81,13 @@ locals {
       # Navigate to 'peering.creator' instead of just 'peering'
       creator = {
         # for creator_key, creator_value in v.peering.creator : creator_key => {
-        for creator_key, creator_value in lookup(lookup(v, "peering", {}), "creator", {}) : creator_key => {
+        for creator_key, creator_value in lookup(lookup(v, "peering", {}), "creator", {}) : "${creator_value.dst_vpc_alias}-${creator_value.dst_vpc_id_alias}" => {
           # dst_vpc_id = creator_value.dst_vpc_id
 
           dst_vpc_id   = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).vpc_id : creator_value.dst_vpc_id
-          dst_vpc_cidr = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).primary_cidr : creator_value.dst_vpc_cidr
+          dst_vpc_cidr = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).all_cidrs : creator_value.dst_vpc_cidr
 
-          # dst_vpc_id = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, k, {}).vpc_id : creator_value.dst_vpc_id  
+          # dst_vpc_id = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, k, {}).vpc_id : creator_value.dst_vpc_id
 
           # creator_value.dst_vpc_id_alias != null ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, k, {}).vpc_id : creator_value.dst_vpc_id
 
@@ -103,18 +103,92 @@ locals {
           )
         }
       }
-      acceptor = {
-        1 = {
-          peering_id = "pcx-94bd4876"
+      # acceptor = lookup(lookup(v, "peering", {}), "acceptor", {})
+      # src_vpc_region_alias = "dc01"
+      # src_vpc_logical_name = "main"
+      acceptor1 = {
+        # for acceptor_key, acceptor_value in v.peering.acceptor : acceptor_key => {
+        for acceptor_key, acceptor_value in lookup(lookup(v, "peering", {}), "acceptor", {}) : "${acceptor_value.src_vpc_region_alias}-${acceptor_value.src_vpc_logical_name}" => {
+          # src_vpc_id = acceptor_value.src_vpc_id
+
+          # src_vpc_id   = try(acceptor_value.src_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, acceptor_value.src_vpc_id_alias, {}).vpc_id : acceptor_value.src_vpc_id
+          # current_vpc_id = lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id
+
+          peering_dst_cidr = try(acceptor_value.src_vpc_logical_name != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, acceptor_value.src_vpc_logical_name, {}).all_cidrs : acceptor_value.src_vpc_cidr
+
+          peering_id = [for peering in lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, null).outputs.peering_ids.creator, acceptor_value.src_vpc_logical_name, null): peering.peering_id if peering.dst_vpc_id == (lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id)]
+          #new_var = local.peering_info.acceptor1.current_vpc_id
+          # peering_id1 = try(
+          #   acceptor_value.src_vpc_logical_name != null, false
+          # ) ? lookup(
+          #   lookup(
+          #     data.terraform_remote_state.vpc[acceptor_value.src_vpc_region_alias].outputs.peering_ids,
+          #     acceptor_value.src_vpc_logical_name,
+          #     {}
+          #   ),
+          #   "peering_id",
+          #   null
+          # ) : null
+          # peering_dst_vpc_id = try(acceptor_value.src_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, acceptor_value.src_vpc_id_alias, {}).vpc_id : acceptor_value.src_vpc_id
+
+          # peering_id = try(acceptor_value.peering_id != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.peering_ids, acceptor_value.src_vpc_logical_name, {}).peering_id : 1 #.all_cidrs : acceptor_value.src_vpc_cidr
+
+          # src_vpc_id = try(acceptor_value.src_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, k, {}).vpc_id : acceptor_value.src_vpc_id
+
+          # acceptor_value.src_vpc_id_alias != null ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, k, {}).vpc_id : acceptor_value.src_vpc_id
+
+          # Check if 'src_vpc_region_alias' exists and is not null
+          # Then check if it exists in 'local.dc' before trying to retrieve values
+          # src_acc_id = try(
+          #   acceptor_value.src_vpc_region_alias != null && contains(keys(local.dc), acceptor_value.src_vpc_region_alias) ? local.dc[acceptor_value.src_vpc_region_alias].acc_id : acceptor_value.src_acc_id,
+          #   acceptor_value.src_acc_id
+          # )
+          # src_region = try(
+          #   acceptor_value.src_vpc_region_alias != null && contains(keys(local.dc), acceptor_value.src_vpc_region_alias) ? local.dc[acceptor_value.src_vpc_region_alias].region : acceptor_value.src_region,
+          #   acceptor_value.src_region
+          # )
         }
       }
+ 
     }
   }
 }
 
+
 output "peering_info" {
   value = local.peering_info
 }
+
+
+output "peering_iddddd" {
+  value = [for peering in lookup(lookup(data.terraform_remote_state.vpc, "dc02", null).outputs.peering_ids.creator, "main", null): peering.peering_id if peering.dst_vpc_id == "vpc-bfad2cd5"]
+}
+
+# locals {
+#   peering_iddddd = [
+#     {
+#       dst_vpc_id = "vpc-bfad2cd5"
+#       peering_id = "pcx-e25ea62b"
+#       src_vpc_id = "vpc-cfc828a5"
+#     },
+#     {
+#       dst_vpc_id = "vpc-dece6adf"
+#       peering_id = "pcx-97a8318c"
+#       src_vpc_id = "vpc-cfc828a5"
+#     }
+#   ]
+# }
+
+# output "peering_id_for_vpc_bfad2cd5" {
+#   value = [
+#     for peering in local.peering_iddddd:
+#     peering.peering_id if peering.dst_vpc_id == "vpc-bfad2cd5"
+#   ]
+# }
+
+# output "filtered_peering_id" {
+#   value = [for peering in data.terraform_remote_state.vpc.outputs.peering_ids.creator.main : peering.peering_id if peering.dst_vpc_id == "vpc-bfad2cd5"]
+# }
 
 # output "vpcs_info" {
 #   value = local.vpcs_info

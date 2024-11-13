@@ -357,32 +357,135 @@ resource "aws_vpc_peering_connection" "main" {
 }
 
 resource "aws_route" "creater_peering" {
-  for_each = tomap({
-    for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(aws_vpc_peering_connection.main)) : 
-    "${pair[0]}-${pair[1]}" => {
-      route_table_id = (
-        pair[0] == "public" ? aws_route_table.public.id :
-        pair[0] == "private" ? aws_route_table.private.id :
-        (
-          lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
-          lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
-          null
-        )
-      ),
-      peering_connection_id = aws_vpc_peering_connection.main[pair[1]].id
-    }
-    if aws_vpc_peering_connection.main[pair[1]].accept_status == "active"
-  })
+  for_each = { for idx, obj in flatten([
+    for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(var.peering["creator"])) :
+    [
+      for dst_cidr in var.peering["creator"][pair[1]].dst_vpc_cidr :
+      {
+        "key" = "${pair[0]}-${pair[1]}-${replace(dst_cidr, "/", "-")}",
+        "value" = {
+          "route_table_id" = (
+            pair[0] == "public" ? aws_route_table.public.id :
+            pair[0] == "private" ? aws_route_table.private.id :
+            (
+              lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
+              lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
+              null
+            )
+          ),
+          "peering_connection_id" = aws_vpc_peering_connection.main[pair[1]].id,
+          "destination_cidr_block" = dst_cidr
+        }
+      }
+      if var.peering["creator"][pair[1]].dst_acc_id != null // only create routes if the destination account ID is set
+    ]
+  ]) : obj.key => obj.value }
 
-  route_table_id         = each.value.route_table_id
-  destination_cidr_block = "10.0.0.0/16" # Modify accordingly to your CIDR block for the peered VPC
-  vpc_peering_connection_id = each.value.peering_connection_id
+  route_table_id             = each.value.route_table_id
+  destination_cidr_block     = each.value.destination_cidr_block
+  vpc_peering_connection_id  = each.value.peering_connection_id
 
-  # # Example tags
   # tags = {
   #   Name = "peering-route-${each.key}"
   # }
+
+  # Ensure the route is created only after the VPC peering connection is active
+  depends_on = [
+    aws_vpc_peering_connection.main
+  ]
 }
+
+## below working 
+# resource "aws_route" "creater_peering" {
+#   for_each = tomap({
+#     for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(var.peering["creator"])) :
+#     "${pair[0]}-${pair[1]}" => {
+#       route_table_id = (
+#         pair[0] == "public" ? aws_route_table.public.id :
+#         pair[0] == "private" ? aws_route_table.private.id :
+#         (
+#           lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
+#           lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
+#           null
+#         )
+#       ),
+#       peering_connection_id = aws_vpc_peering_connection.main[pair[1]].id
+#     }
+#     if var.peering["creator"][pair[1]].dst_acc_id != null // only create routes if the destination account ID is set
+#   })
+
+#   route_table_id             = each.value.route_table_id
+#   destination_cidr_block     = "10.1.0.0/16" // Modify accordingly to your CIDR block for the peered VPC
+#   vpc_peering_connection_id  = each.value.peering_connection_id
+
+#   # # Example tags
+#   # tags = {
+#   #   Name = "peering-route-${each.key}"
+#   # }
+  
+#   # Ensure the route is created only after the VPC peering connection is active
+#   depends_on = [
+#     aws_vpc_peering_connection.main
+#   ]
+# }
+
+# resource "aws_route" "creater_peering" {
+#   for_each = tomap({
+#     for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(aws_vpc_peering_connection.main)) : 
+#     "${pair[0]}-${pair[1]}" => {
+#       route_table_id = (
+#         pair[0] == "public" ? aws_route_table.public.id :
+#         pair[0] == "private" ? aws_route_table.private.id :
+#         (
+#           lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
+#           lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
+#           null
+#         )
+#       ),
+#       peering_connection_id = aws_vpc_peering_connection.main[pair[1]].id
+#     }
+#     if aws_vpc_peering_connection.main[pair[1]].accept_status == "active"
+#   })
+
+#   route_table_id         = each.value.route_table_id
+#   destination_cidr_block = "10.0.0.0/16" # Modify accordingly to your CIDR block for the peered VPC
+#   vpc_peering_connection_id = each.value.peering_connection_id
+
+#   # # Example tags
+#   # tags = {
+#   #   Name = "peering-route-${each.key}"
+#   # }
+# }
+
+# resource "aws_route" "creater_peering" {
+#   for_each = tomap({
+#     for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(aws_vpc_peering_connection.main)) : 
+#     "${pair[0]}-${pair[1]}" => {
+#       route_table_id = (
+#         pair[0] == "public" ? aws_route_table.public.id :
+#         pair[0] == "private" ? aws_route_table.private.id :
+#         (
+#           lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
+#           lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
+#           null
+#         )
+#       ),
+#       peering_connection_id = aws_vpc_peering_connection.main[pair[1]].id
+#     }
+#     if aws_vpc_peering_connection.main[pair[1]].accept_status == "active"
+#   })
+
+#   route_table_id         = each.value.route_table_id
+#   destination_cidr_block = "10.0.0.0/16" # Modify accordingly to your CIDR block for the peered VPC
+#   vpc_peering_connection_id = each.value.peering_connection_id
+
+#   # Example tags
+#   # tags = {
+#   #   Name = "peering-route-${each.key}"
+#   # }
+# }
+
+# Ensure you adjust route_table_id and destination_cidr_block values based on your specific situation
 
 # Ensure you adjust route_table_id and destination_cidr_block values based on your specific situation
 
@@ -401,33 +504,33 @@ resource "aws_vpc_peering_connection_accepter" "main" {
   ]
 }
 
-resource "aws_route" "acceptor_peering" {
-  for_each = tomap({
-    for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(aws_vpc_peering_connection_accepter.main)) : 
-    "${pair[0]}-${pair[1]}" => {
-      route_table_id = (
-        pair[0] == "public" ? aws_route_table.public.id :
-        pair[0] == "private" ? aws_route_table.private.id :
-        (
-          lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
-          lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
-          null
-        )
-      ),
-      peering_connection_id = aws_vpc_peering_connection_accepter.main[pair[1]].id
-    }
-    if aws_vpc_peering_connection_accepter.main[pair[1]].accept_status == "active"
-  })
+# resource "aws_route" "acceptor_peering" {
+#   for_each = tomap({
+#     for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(aws_vpc_peering_connection_accepter.main)) : 
+#     "${pair[0]}-${pair[1]}" => {
+#       route_table_id = (
+#         pair[0] == "public" ? aws_route_table.public.id :
+#         pair[0] == "private" ? aws_route_table.private.id :
+#         (
+#           lookup(aws_route_table.protected, pair[0], null) != null ? aws_route_table.protected[pair[0]].id :
+#           lookup(aws_route_table.additional_nat_protected, pair[0], null) != null ? aws_route_table.additional_nat_protected[pair[0]].id :
+#           null
+#         )
+#       ),
+#       peering_connection_id = aws_vpc_peering_connection_accepter.main[pair[1]].id
+#     }
+#     if aws_vpc_peering_connection_accepter.main[pair[1]].accept_status == "active"
+#   })
 
-  route_table_id         = each.value.route_table_id
-  destination_cidr_block = "10.0.0.0/16" # Modify accordingly to your CIDR block for the peered VPC
-  vpc_peering_connection_id = each.value.peering_connection_id
+#   route_table_id         = each.value.route_table_id
+#   destination_cidr_block = "10.0.0.0/16" # Modify accordingly to your CIDR block for the peered VPC
+#   vpc_peering_connection_id = each.value.peering_connection_id
 
-  # # Example tags
-  # tags = {
-  #   Name = "peering-route-${each.key}"
-  # }
-}
+#   # # Example tags
+#   # tags = {
+#   #   Name = "peering-route-${each.key}"
+#   # }
+# }
 
 # resource "random_pet" "aws_vpc_endpoint_gateway" {
 #   for_each = merge(

@@ -19,3 +19,11 @@ output "peering_ids" {
     }
   }
 }
+
+
+# output "tmp" {
+#   value = {
+#         for vpc, info in module.vpc : vpc => info.tmp
+#     }
+#   # value = local.peering_info
+# }
