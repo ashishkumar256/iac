@@ -491,9 +491,11 @@ resource "aws_route" "creater_peering" {
 
 
 resource "aws_vpc_peering_connection_accepter" "main" {
-  for_each      = lookup(var.peering, "acceptor", {})
+  for_each = { 
+    for k, v in lookup(var.peering, "acceptor", {}) : k => v if v.peering_id != null
+  }
 
-  vpc_peering_connection_id = each.value.peering_id[0]
+  vpc_peering_connection_id = each.value.peering_id
   auto_accept               = true
   tags = {
     Name = "peering-connection-${each.key}"
@@ -503,6 +505,36 @@ resource "aws_vpc_peering_connection_accepter" "main" {
     aws_vpc.main
   ]
 }
+
+# resource "aws_vpc_peering_connection_accepter" "main" {
+#   for_each = { 
+#     for k, v in lookup(var.peering, "acceptor", {}) : k => v if length(v.peering_id) > 0
+#   }
+
+#   vpc_peering_connection_id = each.value.peering_id
+#   auto_accept               = true
+#   tags = {
+#     Name = "peering-connection-${each.key}"
+#   }
+
+#   depends_on = [
+#     aws_vpc.main
+#   ]
+# }
+
+# resource "aws_vpc_peering_connection_accepter" "main" {
+#   for_each      = lookup(var.peering, "acceptor", {})
+
+#   vpc_peering_connection_id = each.value.peering_id
+#   auto_accept               = true
+#   tags = {
+#     Name = "peering-connection-${each.key}"
+#   }
+
+#   depends_on = [
+#     aws_vpc.main
+#   ]
+# }
 
 resource "aws_route" "acceptor_peering" {
   for_each = { for idx, obj in flatten([
@@ -521,7 +553,7 @@ resource "aws_route" "acceptor_peering" {
               null
             )
           ),
-          "peering_connection_id" = var.peering["acceptor"][pair[1]].peering_id[0]
+          "peering_connection_id" = var.peering["acceptor"][pair[1]].peering_id
           "destination_cidr_block" = dst_cidr
         }
       }
@@ -542,6 +574,8 @@ resource "aws_route" "acceptor_peering" {
     aws_vpc_peering_connection.main
   ]
 }
+
+
 
 # resource "aws_route" "acceptor_peering" {
 #   for_each = tomap({

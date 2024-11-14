@@ -32,12 +32,14 @@ locals {
           )
         }
       }
-
       acceptor = {
         for acceptor_key, acceptor_value in lookup(lookup(v, "peering", {}), "acceptor", {}) : "${acceptor_value.src_vpc_region_alias}-${acceptor_value.src_vpc_logical_name}" => {
-          peering_dst_cidr = try(acceptor_value.src_vpc_logical_name != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, acceptor_value.src_vpc_logical_name, {}).all_cidrs : acceptor_value.src_vpc_cidr
+          peering_dst_cidr = try(try(acceptor_value.src_vpc_logical_name != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, {}).outputs.vpc_info, acceptor_value.src_vpc_logical_name, {}).all_cidrs : acceptor_value.src_vpc_cidr, [])
 
-          peering_id = [for peering in lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, null).outputs.peering_ids.creator, acceptor_value.src_vpc_logical_name, null): peering.peering_id if peering.dst_vpc_id == (lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id)]
+          # peering_id = try([for peering in lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, null).outputs.peering_ids.creator, acceptor_value.src_vpc_logical_name, null): peering.peering_id if peering.dst_vpc_id == (lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id)][0], null)
+          # peering_id = try([for peering in lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, null).outputs.peering_ids.creator, acceptor_value.src_vpc_logical_name, null): peering.peering_id if peering.dst_vpc_id == (lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id)][0], null)
+          peering_id = try({ for pc in lookup(lookup(data.terraform_remote_state.vpc, acceptor_value.src_vpc_region_alias, null).outputs.peering_ids.creator, acceptor_value.src_vpc_logical_name, null): pc.dst_vpc_id => pc.peering_id }[lookup(lookup(data.terraform_remote_state.vpc, local.environment, {}).outputs.vpc_info, k, {}).vpc_id], null)
+
         }
       }
     }

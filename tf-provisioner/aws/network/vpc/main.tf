@@ -1,6 +1,6 @@
 module "vpc" {
   #source             = "git@github.com:moengage/terraform-modules.git//aws/network/vpc"
-  source = "/Users/ashish.singh/stg-vpc/tf-modules/aws/network/vpc"
+  source = "/Users/ashish.singh/iac/tf-modules/aws/network/vpc"
 
   for_each        = local.vpcs_info
   name            = each.key
