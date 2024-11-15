@@ -19,8 +19,13 @@ locals {
     for k, v in local.vpcs_info : k => {
       creator = {
         for creator_key, creator_value in lookup(lookup(v, "peering", {}), "creator", {}) : "${creator_value.dst_vpc_alias}-${creator_value.dst_vpc_id_alias}" => {
-          dst_vpc_id   = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).vpc_id : creator_value.dst_vpc_id
-          dst_vpc_cidr = try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).all_cidrs : creator_value.dst_vpc_cidr
+          dst_vpc_id   = try(
+            try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).vpc_id : creator_value.dst_vpc_id, null
+          )
+          
+          dst_vpc_cidr = try(
+            try(creator_value.dst_vpc_id_alias != null, false) ? lookup(lookup(data.terraform_remote_state.vpc, creator_value.dst_vpc_alias, {}).outputs.vpc_info, creator_value.dst_vpc_id_alias, {}).all_cidrs : creator_value.dst_vpc_cidr, []
+          )
 
           dst_acc_id = try(
             creator_value.dst_vpc_alias != null && contains(keys(local.dc), creator_value.dst_vpc_alias) ? local.dc[creator_value.dst_vpc_alias].acc_id : creator_value.dst_acc_id,

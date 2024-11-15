@@ -341,7 +341,7 @@ resource "aws_vpc_endpoint" "interface" {
 }
 
 resource "aws_vpc_peering_connection" "main" {
-  for_each      = lookup(var.peering, "creator", {})
+  for_each      = {for k, v in lookup(var.peering, "creator", {}) : k => v if v.dst_vpc_id != null }
   vpc_id        = aws_vpc.main.id
   peer_owner_id = each.value.dst_acc_id
   peer_vpc_id   = each.value.dst_vpc_id
@@ -356,7 +356,7 @@ resource "aws_vpc_peering_connection" "main" {
   ]
 }
 
-resource "aws_route" "creater_peering" {
+resource "aws_route" "creator_peering" {
   for_each = { for idx, obj in flatten([
     for pair in setproduct(concat(keys(aws_route_table.protected), keys(aws_route_table.additional_nat_protected), ["public", "private"]), keys(var.peering["creator"])) :
     [
@@ -557,7 +557,7 @@ resource "aws_route" "acceptor_peering" {
           "destination_cidr_block" = dst_cidr
         }
       }
-      if var.peering["acceptor"][pair[1]].peering_dst_cidr != null // only create routes if the destination account ID is set
+      if var.peering["acceptor"][pair[1]].peering_dst_cidr != null && var.peering["acceptor"][pair[1]].peering_id != null // only create routes if the destination account ID is set
     ]
   ]) : obj.key => obj.value }
 
