@@ -100,38 +100,15 @@ resource "aws_route_table_association" "additional_protected_without_dedicated_n
   route_table_id = var.nat_gw.HA ? aws_route_table.protected[each.value.az].id : aws_route_table.protected["${var.nat_gw.Preffered_data_AZ}"].id
 }
 
-# # resource "aws_route_table_association" "additional_protected_with_dedicated_nat" {
-# #   for_each = local.protected_subnet_map_with_self_nat_gw
-
-# #   subnet_id      = aws_subnet.additional_protected[each.key].id
-# #   route_table_id = aws_route_table.additional_nat_protected["tertiary-ap-south-1a"].id 
-
-# # #   route_table_id = aws_route_table.additional_nat_protected["tertiary-ap-south-1a"].id 
-# # #   route_table_id = aws_route_table.additional_nat_protected["${each.value.cidr_name}-${each.value.az}"].id 
-
-# # #   route_table_id = aws_route_table.additional_nat_protected[each.value.az].id 
-# # #   route_table_id = var.nat_gw.HA ? aws_route_table.additional_nat_protected[each.value.az].id : aws_route_table.protected["${var.nat_gw.Preffered_data_AZ}"].id
-# # }
-
-# # resource "aws_route_table_association" "additional_protected" {
-# #   for_each = local.protected_subnet_map_without_self_nat_gw
-
-# #   subnet_id      = aws_subnet.additional_protected[each.key].id
-# #   route_table_id = var.nat_gw.HA ? aws_route_table.additional_nat_protected[each.value.az].id : aws_route_table.protected["${var.nat_gw.Preffered_data_AZ}"].id
-
-# # }
-
 resource "aws_route_table_association" "additional_protected_with_dedicated_nat" {
   for_each = local.protected_subnet_map_with_dedicated_nat_gw
 
   subnet_id      = aws_subnet.additional_protected[each.key].id
   route_table_id = aws_route_table.additional_protected["${each.value.cidr_name}-${each.value.nat_az}"].id 
-#   route_table_id = var.nat_gw.HA ? aws_route_table.additional_nat_protected[each.value.az].id : aws_route_table.protected["${var.nat_gw.Preffered_data_AZ}"].id
-
 }
 
 resource "aws_route_table" "additional_protected" {
-  for_each = { for nat in local.az_belongs_to_protect_additional_route_table : "${nat.cidr_name}-${nat.az}" => nat }
+  for_each = { for nat in local.az_belongs_to_protected_additional_route_table : "${nat.cidr_name}-${nat.az}" => nat }
 
   vpc_id = aws_vpc.main.id
 
@@ -141,7 +118,7 @@ resource "aws_route_table" "additional_protected" {
 }
 
 resource "aws_route" "additional_protected" {
-  for_each = { for nat in local.az_belongs_to_protect_additional_route_table : "${nat.cidr_name}-${nat.az}" => nat }
+  for_each = { for nat in local.az_belongs_to_protected_additional_route_table : "${nat.cidr_name}-${nat.az}" => nat }
 
   route_table_id         = aws_route_table.additional_protected["${each.value.cidr_name}-${each.value.az}"].id
   destination_cidr_block = "0.0.0.0/0"

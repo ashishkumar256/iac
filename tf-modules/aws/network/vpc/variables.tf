@@ -24,14 +24,6 @@ variable "nat_gw" {
 variable "additional_cidr" {
 }
 
-# variable "gateway_endpoint" {
-  
-# }
-
-# variable "interface_endpoint" {
-  
-# }
-
 variable "endpoint" {
   
 }
